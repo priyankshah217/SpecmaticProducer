@@ -10,7 +10,9 @@ import (
 )
 
 var (
-	invalidSchemaError = errors.New("invalid schema")
+	invalidSchemaError     = errors.New("invalid schema")
+	invalidQueryParamError = errors.New("invalid query param")
+	inventoryLimitError    = errors.New("inventory should be less than 9999")
 )
 
 type CreateProductRequest struct {
@@ -24,7 +26,7 @@ type CreateProductResponse struct {
 	ID int `json:"id"`
 }
 
-type CreateProductErrorResponse struct {
+type ErrorResponse struct {
 	Timestamp time.Time `json:"timestamp"`
 	Status    int       `json:"status"`
 	Error     string    `json:"error"`
@@ -36,13 +38,21 @@ var productMap = make(map[int]models.Product)
 // CreateProduct create product using gin
 func CreateProduct(c *gin.Context) {
 	var request CreateProductRequest
-	if err := c.ShouldBindJSON(&request); request.Inventory > 9999 || err != nil {
-		c.JSON(400, gin.H{
-			"timestamp": time.Now(),
-			"status":    0,
-			"error":     invalidSchemaError.Error(),
-			"path":      c.Request.URL.Path,
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(400, ErrorResponse{
+			Timestamp: time.Now(),
+			Status:    0,
+			Error:     invalidSchemaError.Error(),
+			Path:      c.Request.URL.Path,
 		})
+		return
+	}
+	if request.Inventory > 9999 {
+		c.JSON(400, ErrorResponse{
+			Timestamp: time.Now(),
+			Status:    0,
+			Error:     inventoryLimitError.Error(),
+			Path:      c.Request.URL.Path})
 		return
 	}
 	count := len(productMap) + 1
@@ -55,11 +65,11 @@ func CreateProduct(c *gin.Context) {
 func GetProductsByQuery(c *gin.Context) {
 	typeParam := c.Query("type")
 	if isNonStringParam(typeParam) {
-		c.JSON(400, gin.H{
-			"timestamp": time.Now(),
-			"status":    0,
-			"error":     invalidSchemaError.Error(),
-			"path":      c.Request.URL.Path,
+		c.JSON(400, ErrorResponse{
+			Timestamp: time.Now(),
+			Status:    0,
+			Error:     invalidQueryParamError.Error(),
+			Path:      c.Request.URL.Path,
 		})
 		return
 	}
